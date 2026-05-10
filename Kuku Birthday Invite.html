@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Kuku turns ONE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Caprasimo&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a0d2e;
+    --paper: #fff6e8;
+    --halftone: rgba(0,0,0,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+  /* Tall track that drives the scroll-bound animation */
+  #scroll-track {
+    height: 700vh;
+    position: relative;
+  }
+  #stage {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    perspective: 1800px;
+    perspective-origin: 50% 50%;
+  }
+  /* ambient stage backdrop — comic-book ben-day dots */
+  #stage::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(circle at 25% 25%, rgba(255,255,255,0.06) 1.5px, transparent 2px),
+      radial-gradient(circle at 75% 75%, rgba(255,255,255,0.04) 1px, transparent 1.5px);
+    background-size: 24px 24px, 18px 18px;
+    pointer-events: none;
+  }
+  #stage::after {
+    /* subtle vignette */
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+  .card-stack {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(78vw, 560px);
+    aspect-ratio: 4 / 5;
+    transform-style: preserve-3d;
+  }
+  .flip-card {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    overflow: hidden;
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.6),
+      0 0 0 4px rgba(0,0,0,0.85),
+      inset 0 0 0 10px rgba(255,255,255,0.18);
+    transform-origin: center center;
+    will-change: transform, opacity;
+  }
+  .flip-card .panel-bg {
+    position: absolute; inset: 0;
+    /* halftone dots over flat color */
+    background-image: radial-gradient(circle, var(--halftone) 22%, transparent 24%);
+    background-size: 14px 14px;
+    background-position: 0 0;
+    mix-blend-mode: multiply;
+    opacity: 0.55;
+  }
+  .flip-card .corner-burst {
+    position: absolute;
+    width: 220%; height: 220%;
+    left: -60%; top: -60%;
+    background: conic-gradient(from 0deg,
+      transparent 0deg, transparent 14deg,
+      rgba(255,255,255,0.18) 15deg, rgba(255,255,255,0.18) 22deg,
+      transparent 23deg, transparent 37deg,
+      rgba(255,255,255,0.18) 38deg, rgba(255,255,255,0.18) 45deg,
+      transparent 46deg, transparent 60deg,
+      rgba(255,255,255,0.18) 61deg, rgba(255,255,255,0.18) 68deg,
+      transparent 69deg);
+    background-size: cover;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+  .flip-card .photo-wrap {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 78%;
+    height: 78%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .flip-card .photo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+    border-radius: 6px;
+    border: 8px solid #fff;
+    box-shadow:
+      0 12px 24px -8px rgba(0,0,0,0.45),
+      0 0 0 2px rgba(0,0,0,0.85);
+    background: #fff;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+  .final-card .photo-img {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    object-fit: contain;
+    object-position: center bottom;
+  }
+  .flip-card .photo-missing {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Anton', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(0,0,0,0.35);
+    text-align: center;
+    padding: 12px;
+    text-transform: uppercase;
+  }
+  .flip-card .caption {
+    position: absolute;
+    font-family: 'Anton', Impact, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 0.86;
+    text-transform: uppercase;
+    -webkit-text-stroke: 2px rgba(0,0,0,0.92);
+    text-shadow:
+      4px 4px 0 rgba(0,0,0,0.92),
+      8px 8px 0 rgba(255,255,255,0.4);
+    pointer-events: none;
+  }
+  .flip-card .caption.tl { top: 5%; left: 5%; font-size: clamp(48px, 9vw, 96px); transform: rotate(-4deg); }
+  .flip-card .caption.br { bottom: 5%; right: 5%; font-size: clamp(40px, 7vw, 76px); transform: rotate(3deg); }
+  .flip-card .frame-label {
+    position: absolute;
+    top: 14px; right: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    padding: 4px 8px;
+    border: 2px solid rgba(0,0,0,0.85);
+    background: rgba(255,255,255,0.85);
+    color: #1a0d2e;
+  }
+
+  /* Final hero card */
+  .final-card {
+    box-shadow:
+      0 40px 80px -20px rgba(0,0,0,0.7),
+      0 0 0 4px rgba(0,0,0,0.9),
+      inset 0 0 0 12px rgba(255,255,255,0.55);
+  }
+  .final-card .photo-wrap { width: 86%; height: 88%; }
+  .final-card .candle-glow {
+    position: absolute;
+    left: 50%; bottom: 30%;
+    transform: translateX(-50%);
+    width: 60%; aspect-ratio: 1;
+    background: radial-gradient(circle, rgba(255,200,80,0.55) 0%, rgba(255,150,30,0.2) 30%, transparent 60%);
+    filter: blur(8px);
+    pointer-events: none;
+  }
+
+  /* Title that drops in from top */
+  .hero-title {
+    position: absolute;
+    top: 6vh;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .hero-title .small {
+    font-family: 'Anton', Impact, sans-serif;
+    font-size: clamp(14px, 2vw, 22px);
+    letter-spacing: 0.6em;
+    color: #ffd60a;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    -webkit-text-stroke: 1px rgba(0,0,0,0.9);
+  }
+  .hero-title .name {
+    font-family: 'Caprasimo', serif;
+    font-size: clamp(56px, 10vw, 132px);
+    line-height: 0.92;
+    color: #fff6e8;
+    text-shadow:
+      4px 4px 0 #1a0d2e,
+      8px 8px 0 #ff5a8c;
+    white-space: nowrap;
+  }
+
+  /* Details panel rising from bottom */
+  .details-panel {
+    position: absolute;
+    bottom: 4vh;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    background: var(--paper);
+    color: var(--ink);
+    border: 4px solid var(--ink);
+    border-radius: 8px;
+    box-shadow: 10px 10px 0 #1a0d2e, 10px 10px 0 4px rgba(0,0,0,0);
+    padding: 18px 32px;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 8px 36px;
+    align-items: end;
+    font-family: 'DM Sans', sans-serif;
+    pointer-events: auto;
+    max-width: 92vw;
+  }
+  .details-panel .item .lbl {
+    font-family: 'Anton', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #ff5a8c;
+    margin-bottom: 4px;
+  }
+  .details-panel .item .val {
+    font-family: 'Caprasimo', serif;
+    font-size: clamp(16px, 1.6vw, 22px);
+    line-height: 1.05;
+    color: var(--ink);
+  }
+  .details-panel .rsvp {
+    grid-column: 1 / -1;
+    border-top: 2px dashed rgba(26,13,46,0.25);
+    margin-top: 6px;
+    padding-top: 10px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .details-panel .rsvp strong {
+    font-family: 'Anton', sans-serif;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #4361ee;
+    margin-right: 8px;
+  }
+
+  /* Scroll hint at top */
+  .scroll-hint {
+    position: absolute;
+    bottom: 5vh; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Anton', sans-serif;
+    letter-spacing: 0.4em;
+    font-size: 12px;
+    color: rgba(255,246,232,0.7);
+    text-transform: uppercase;
+    z-index: 30;
+    pointer-events: none;
+  }
+  .scroll-hint .arrow {
+    display: block;
+    margin: 8px auto 0;
+    width: 1px; height: 28px;
+    background: rgba(255,246,232,0.6);
+    position: relative;
+  }
+  .scroll-hint .arrow::after {
+    content: "";
+    position: absolute;
+    bottom: 0; left: -3px;
+    width: 7px; height: 7px;
+    border-right: 1px solid rgba(255,246,232,0.6);
+    border-bottom: 1px solid rgba(255,246,232,0.6);
+    transform: rotate(45deg);
+  }
+
+  /* Confetti */
+  #confetti-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 40;
+  }
+
+  /* Flash overlay during flips for impact */
+  .flash-overlay {
+    position: absolute;
+    inset: 0;
+    background: white;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    z-index: 25;
+  }
+
+  /* Top-corner static credit */
+  .top-tag {
+    position: fixed;
+    top: 14px; left: 16px;
+    font-family: 'Anton', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    color: rgba(255,246,232,0.55);
+    text-transform: uppercase;
+    z-index: 60;
+    pointer-events: none;
+  }
+
+  /* Map link inside the location card */
+  .details-panel .loc-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    text-decoration-color: #ff5a8c;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .details-panel .loc-link:hover { text-decoration-style: solid; }
+  .details-panel .loc-link svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  /* Reduced motion: still scroll-bound but less dramatic */
+  @media (prefers-reduced-motion: reduce) {
+    .flip-card { transition: none; }
+  }
+
+  /* Mobile / narrow-width tuning */
+  @media (max-width: 640px) {
+    .card-stack {
+      width: min(86vw, 420px);
+    }
+    .hero-title {
+      top: 3.5vh;
+      width: 92vw;
+    }
+    .hero-title .small {
+      letter-spacing: 0.4em;
+      margin-bottom: 4px;
+    }
+    .hero-title .name {
+      white-space: normal;
+      line-height: 0.95;
+      font-size: clamp(44px, 13vw, 84px);
+      text-shadow:
+        3px 3px 0 #1a0d2e,
+        6px 6px 0 #ff5a8c;
+    }
+    .details-panel {
+      grid-template-columns: 1fr;
+      gap: 6px 0;
+      padding: 14px 20px;
+      bottom: 3vh;
+      box-shadow: 6px 6px 0 var(--ink);
+      width: min(92vw, 420px);
+    }
+    .details-panel .item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      border-bottom: 1px dashed rgba(26,13,46,0.18);
+      padding-bottom: 6px;
+    }
+    .details-panel .item:nth-last-of-type(2) { border-bottom: none; padding-bottom: 0; }
+    .details-panel .item .lbl {
+      margin-bottom: 0;
+      min-width: 52px;
+      font-size: 10px;
+      letter-spacing: 0.24em;
+    }
+    .details-panel .item .val {
+      font-size: 15px;
+      flex: 1;
+    }
+    .details-panel .rsvp {
+      margin-top: 4px;
+      padding-top: 8px;
+      font-size: 12px;
+    }
+    .flip-card .caption.tl { font-size: clamp(40px, 12vw, 72px); }
+    .flip-card .caption.br { font-size: clamp(32px, 9vw, 56px); }
+  }
+  @media (max-width: 380px) {
+    .hero-title .small { font-size: 12px; }
+    .details-panel { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="top-tag">An Invitation · 2026</div>
+<div id="scroll-track">
+  <div id="stage">
+    <div id="root"></div>
+    <canvas id="confetti-canvas"></canvas>
+    <div class="scroll-hint" id="scroll-hint">Scroll<span class="arrow"></span></div>
+  </div>
+</div>
+
+<!-- live tweak defaults -->
+<script>
+window.__TWEAKS = /*EDITMODE-BEGIN*/{
+  "childName": "Varnika",
+  "ageWord": "ONE",
+  "preTitle": "You're invited to",
+  "dateText": "Saturday, May 23, 2026",
+  "timeText": "09:00 AM",
+  "locationText": "Esteem Classic, Near ISKCON Rajajinagar",
+  "rsvpText": "",
+  "mapsUrl": "",
+  "theme": "comic",
+  "showCaptions": true,
+  "cardCount": 10,
+  "confettiDensity": 6,
+  "flipSpeed": 2,
+  "enableSounds": true,
+  "enableMusic": false,
+  "musicUrl": "music.mp3"
+}/*EDITMODE-END*/;
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="confetti.jsx"></script>
+<script type="text/babel" src="main.jsx"></script>
+</body>
+</html>
