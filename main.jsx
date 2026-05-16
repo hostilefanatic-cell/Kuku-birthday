@@ -163,13 +163,21 @@ function App() {
     [cardCount, baseCards]
   );
 
-  // Scale the scroll-track so each flip gets the same scroll distance regardless of N
+  // Scroll-track height: ~50vh per card-state-transition plus 100vh for the
+  // sticky stage. Compact enough that the user reaches the final scene
+  // without endless scrolling, but each flip still feels like a deliberate
+  // input rather than something to brush past.
   useEffect(() => {
     const track = document.getElementById('scroll-track');
-    if (track) track.style.height = `${Math.round((cardCount / 7) * 700)}vh`;
+    if (track) track.style.height = `${50 * (cardCount + 1) + 100}vh`;
   }, [cardCount]);
 
-  const [progress, setProgress] = useState(0);
+  // Scroll position picks WHICH card should be visible (an integer target).
+  // The actual rotation eases toward that target, so each flip plays through
+  // to completion smoothly even if the user stops scrolling mid-flip.
+  const [scrollFrac, setScrollFrac] = useState(0);
+  const [animatedIdx, setAnimatedIdx] = useState(0);
+  const [finalRevealP, setFinalRevealP] = useState(0);
   const stageRef = useRef(null);
 
   useEffect(() => {
@@ -187,7 +195,7 @@ function App() {
       requestAnimationFrame(() => {
         const total = document.documentElement.scrollHeight - window.innerHeight;
         const p = total > 0 ? Math.max(0, Math.min(1, window.scrollY / total)) : 0;
-        setProgress(p);
+        setScrollFrac(p);
         ticking = false;
       });
     };
@@ -196,28 +204,71 @@ function App() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const FLIP_END = 0.72;
-  const speed = t.flipSpeed || 1.0;
-  // Effectively shrink flip region with higher speed -> flips happen sooner
-  const adjFlipEnd = Math.max(0.35, FLIP_END / speed);
-  const flipP = Math.min(progress / adjFlipEnd, 1);
-  const activeFloat = flipP * cards.length; // 0..N
-  const activeIdx = Math.min(Math.floor(activeFloat), cards.length);
-  const tween = ease(activeFloat - activeIdx);
+  // Map scroll fraction to a discrete target: cards.length+1 buckets total,
+  // 0..cards.length-1 = flip cards, cards.length = final scene.
+  const targetIdx = Math.min(cards.length, Math.floor(scrollFrac * (cards.length + 1) + 0.0001));
+  const targetIdxRef = useRef(0);
+  useEffect(() => { targetIdxRef.current = targetIdx; }, [targetIdx]);
 
-  // Final-state thresholds (relative to overall scroll, not flip region)
-  const finalLockedAt = adjFlipEnd; // when last flip finishes
-  const detailsP = Math.max(0, Math.min(1, (progress - (finalLockedAt + 0.04)) / 0.18));
-  const titleP = Math.max(0, Math.min(1, (progress - (finalLockedAt + 0.01)) / 0.15));
-  const confettiActive = progress > finalLockedAt - 0.02;
+  // Animation loop: ease animatedIdx + finalRevealP toward their targets.
+  // Lerp factor maps from the flipSpeed slider (0.6..2.0 → ~0.10..0.22 per frame).
+  const animIdxRef = useRef(0);
+  const revealRef = useRef(0);
+  const lerpKRef = useRef(0.15);
+  useEffect(() => {
+    const s = t.flipSpeed || 1.0;
+    lerpKRef.current = Math.max(0.06, Math.min(0.30, 0.06 + 0.08 * s));
+  }, [t.flipSpeed]);
+
+  useEffect(() => {
+    let raf = 0;
+    let running = true;
+    const tick = () => {
+      if (!running) return;
+      const target = targetIdxRef.current;
+      const finalTarget = target >= cards.length ? 1 : 0;
+      const k = lerpKRef.current;
+
+      const dIdx = target - animIdxRef.current;
+      if (Math.abs(dIdx) > 0.0005) {
+        animIdxRef.current += dIdx * k;
+        setAnimatedIdx(animIdxRef.current);
+      } else if (animIdxRef.current !== target) {
+        animIdxRef.current = target;
+        setAnimatedIdx(target);
+      }
+
+      const dRev = finalTarget - revealRef.current;
+      if (Math.abs(dRev) > 0.001) {
+        revealRef.current += dRev * k;
+        setFinalRevealP(revealRef.current);
+      } else if (revealRef.current !== finalTarget) {
+        revealRef.current = finalTarget;
+        setFinalRevealP(finalTarget);
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { running = false; cancelAnimationFrame(raf); };
+  }, [cards.length]);
+
+  // Derive render values from the animated index
+  const activeIdx = Math.min(Math.floor(animatedIdx), cards.length);
+  const tween = ease(Math.max(0, Math.min(1, animatedIdx - activeIdx)));
+
+  // Final-scene reveal — title, details, confetti all tied to the same eased reveal
+  const titleP = finalRevealP;
+  const detailsP = finalRevealP;
+  const confettiActive = finalRevealP > 0.02;
 
   // Hide scroll hint as soon as the first flip starts
   useEffect(() => {
     const el = document.getElementById('scroll-hint');
     if (!el) return;
-    el.style.opacity = progress > 0.02 ? '0' : '1';
+    el.style.opacity = scrollFrac > 0.02 ? '0' : '1';
     el.style.transition = 'opacity 0.3s';
-  }, [progress]);
+  }, [scrollFrac]);
 
   // Unlock audio context on first user gesture (browser autoplay policy)
   useEffect(() => {
@@ -276,9 +327,8 @@ function App() {
   }, [t.enableMusic, t.musicUrl]);
   useEffect(() => {
     if (!musicRef.current) return;
-    const ramp = Math.max(0, Math.min(1, (progress - (finalLockedAt - 0.08)) / 0.20));
-    musicRef.current.volume = ramp * 0.5;
-  }, [progress, finalLockedAt]);
+    musicRef.current.volume = finalRevealP * 0.5;
+  }, [finalRevealP]);
 
   // Build the map URL — use override if set, otherwise auto-derive from location text
   const mapsHref = (t.mapsUrl && t.mapsUrl.trim())
@@ -348,7 +398,7 @@ function App() {
             background: theme.final,
             color: theme.stageInk,
             zIndex: 1,
-            transform: `rotateY(0deg) scale(${1 + Math.max(0, (progress - finalLockedAt) * 0.05)})`,
+            transform: `rotateY(0deg) scale(${1 + finalRevealP * 0.04})`,
           }}
         >
           <div className="panel-bg" style={{opacity: 0.25}} />
